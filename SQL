@@ -1,0 +1,52 @@
+/* Примеры решаемых задач с использованием SQL:
+
+1) Вывести фамилию с инициалами и общую сумму суточных, 
+полученных за все командировки для тех сотрудников, 
+которые были в командировках больше чем 3 раза, 
+в отсортированном по убыванию сумм суточных виде. 
+Последний столбец назвать Сумма. */
+
+SELECT name,
+    SUM((DATEDIFF(date_last,date_first) + 1) * per_diem) AS 'Сумма'
+FROM trip
+WHERE name IN (
+    SELECT name
+    FROM trip
+    GROUP BY name
+    HAVING COUNT(date_first) > 3
+    )
+GROUP BY name
+ORDER BY Сумма DESC;
+
+/* 2) Установите фестивали, которые проходили с 23 июля по 30 сентября 2018 года в Москве, и номер недели, 
+в которую они проходили. Выведите название фестиваля festival_name и номер недели festival_week.
+Для каждой недели с 23 июля по 30 сентября 2018 года посчитайте количество билетов, 
+купленных на рейсы в Москву (номер недели week_number и количество рейсов flights_amount). 
+Получите таблицу, в которой будет информация о количестве купленных за неделю билетов, отметка, 
+проходил ли в эту неделю фестиваль, название фестиваля festival_name и номер недели week_number. */
+
+SELECT
+    EXTRACT(week FROM CAST(flights.arrival_time AS date)) AS week_number,
+    COUNT(ticket_flights.ticket_no) AS ticket_amount,
+    sub.festival_week AS festival_week,
+    sub.festival_name AS festival_name
+    
+FROM tickets
+    LEFT JOIN ticket_flights ON ticket_flights.ticket_no  = tickets.ticket_no
+    LEFT JOIN flights ON flights.flight_id  = ticket_flights.flight_id
+    LEFT JOIN airports ON airports.airport_code = flights.arrival_airport
+    LEFT JOIN
+        (SELECT
+             festival_name,
+             EXTRACT(WEEK FROM CAST(festival_date AS date)) AS festival_week
+         FROM
+             festivals
+         WHERE
+             festival_city = 'Москва' AND festival_date BETWEEN '2018-07-23' AND '2018-09-30') as sub ON sub.festival_week = EXTRACT(week FROM CAST(flights.arrival_time AS date))
+WHERE
+    airports.city = 'Москва' AND
+    CAST(flights.arrival_time AS date) BETWEEN '2018-07-23' AND '2018-09-30'
+GROUP BY
+    EXTRACT(week FROM CAST(flights.arrival_time AS date)), 
+    festival_week, 
+    festival_name;
